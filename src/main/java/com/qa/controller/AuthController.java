@@ -4,15 +4,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/bank") // Simplified to match your BaseTest + AccountTest paths
 public class AuthController {
-
+    private int mockBalance = 1000;
     // Matches .post("/accounts") in your test
     @PostMapping("/accounts")
     public ResponseEntity<Map<String, Object>> createAccount(@RequestBody Map<String, Object> payload) {
@@ -36,7 +33,7 @@ public class AuthController {
         return new ResponseEntity<>(response, HttpStatus.CREATED); // Returns 201
     }
 
-    // Matches .get("/users?page=2") in your test
+
     @GetMapping("/users")
     public ResponseEntity<Map<String, Object>> getUsers(@RequestParam(defaultValue = "1") int page) {
         Map<String, Object> response = new HashMap<>();
@@ -50,8 +47,7 @@ public class AuthController {
 
         return new ResponseEntity<>(response, HttpStatus.OK); // Returns 200
     }
-    // Matches .post("/login") OR .post("/auth/login")
-    // depending on how you fix your test paths
+
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, Object> payload) {
         Map<String, Object> response = new HashMap<>();
@@ -71,5 +67,22 @@ public class AuthController {
         // 3. Success (TC_Auth_001)
         response.put("token", "QpwL5tke4Pnpja7X4");
         return new ResponseEntity<>(response, HttpStatus.OK); // 200
+    }
+
+    @PostMapping("/transfer")
+    public ResponseEntity<Map<String, Object>> transferMoney(@RequestBody Map<String, Object> payload) {
+        int amount = (int) payload.get("amount");
+        String from = (String) payload.get("fromAccount");
+
+        // Mock Logic: Pretend "ACC123" only has $1000
+
+        if (amount > mockBalance) {
+            return new ResponseEntity<>(Map.of("message", "Insufficient funds"), HttpStatus.BAD_REQUEST);
+        }
+        return new ResponseEntity<>(Map.of(
+                "status", "Success",
+                "transactionId", UUID.randomUUID().toString(),
+                "newBalance", (mockBalance - amount)
+        ), HttpStatus.OK);
     }
 }

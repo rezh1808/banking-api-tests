@@ -27,4 +27,22 @@ public class TransactionTest extends BaseTest {
                 .statusCode(201)   // Success code for creation
                 .body("name", equalTo("reza"));
     }
+
+    @Test
+    void transfer_shouldSucceed() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("""
+                   {
+                     "fromAccount" : "ACC123",
+                     "to Account" : "ACC456",
+                     "amount" : 500                                   
+                   }
+                   """)
+                .when()
+                    .post("/transfer")
+                .then()
+                    .statusCode(200)
+                .body("status", equalTo("Success"));
+    }
 }
