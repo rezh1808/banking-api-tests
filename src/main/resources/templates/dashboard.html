@@ -14,10 +14,62 @@
 </head>
 <body>
 <div class="container">
-    <h2>Hello, Reza!</h2>
+    <h2>Banking Dashboard</h2>
     <div class="balance-label">Current Balance</div>
-    <p class="balance-amount">$<span th:text="${balance}">0.00</span></p>
-    <button class="btn" onclick="location.reload()">Refresh Balance</button>
+    <p class="balance-amount">$<span id="balanceDisplay" th:text="${balance}">0.00</span></p>
+
+    <hr>
+
+    <h3>Quick Transfer</h3>
+    <input type="number" id="transferAmount" placeholder="Amount to send" style="padding: 8px; width: 80%;">
+    <button class="btn" onclick="sendMoney()">Send Money</button>
+    <button class="btn" style="background:#e74c3c" onclick="logout()">Logout</button>
+    <p id="statusMessage" style="margin-top: 15px; font-weight: bold;"></p>
 </div>
+
+<script>
+    async function sendMoney() {
+        const amount = document.getElementById('transferAmount').value;
+        const status = document.getElementById('statusMessage');
+        const balanceSpan = document.getElementById('balanceDisplay');
+
+        if (!amount || amount <= 0) {
+            status.innerText = "Please enter a valid amount";
+            status.style.color = "red";
+            return;
+        }
+
+        // This talks to your AuthController @PostMapping("/transfer")
+        const response = await fetch('/bank/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fromAccount: "ACC123",
+                toAccount: "ACC456",
+                amount: parseInt(amount)
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            status.innerText = "Transfer Successful!";
+            status.style.color = "green";
+            // Update the UI balance immediately without refreshing!
+            balanceSpan.innerText = data.newBalance;
+        } else {
+            status.innerText = "Transfer Failed (Insufficient Funds)";
+            status.style.color = "red";
+        }
+    }
+    // Security Check: If not logged in, send back to login
+    if (localStorage.getItem("isLoggedIn") !== "true") {
+        window.location.href = "/ui/login";
+    }
+
+    function logout() {
+        localStorage.removeItem("isLoggedIn");
+        window.location.href = "/ui/login";
+    }
+</script>
 </body>
 </html>

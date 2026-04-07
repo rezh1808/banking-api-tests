@@ -8,12 +8,23 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class ViewController {
 
     // This matches the variable in your AuthController
-    private int mockBalance = 1000;
+    public static int mockBalance = 1000;
 
     @GetMapping("/ui/dashboard")
     public String getDashboard(Model model) {
         // This sends "1000" to the HTML page
-        model.addAttribute("balance", mockBalance);
+        model.addAttribute("balance", AuthController.mockBalance);
         return "dashboard"; // This must match the filename dashboard.html
+    }
+
+    @GetMapping("/ui/login")
+    public String showLoginPage() {
+        return "login"; // Looks for login.html
+    }
+
+    // Also redirect the root "/" to login
+    @GetMapping("/")
+    public String redirectToLogin() {
+        return "redirect:/ui/login";
     }
 }

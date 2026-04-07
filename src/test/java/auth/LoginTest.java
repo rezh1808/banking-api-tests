@@ -21,7 +21,7 @@ public class LoginTest extends BaseTest {
         }
         """)
                 .when()
-                .post("/login")
+                .post("/logintest")
                 .then()
                 .statusCode(200)
                 .body("token", notNullValue());
@@ -37,7 +37,7 @@ public class LoginTest extends BaseTest {
                 }
             """)
                 .when()
-                .post("/login")
+                .post("/logintest")
                 .then()
                 .statusCode(400)
                 .body("message", containsString("password required"));
@@ -55,7 +55,7 @@ public class LoginTest extends BaseTest {
                 }
             """)
                 .when()
-                .post("/login")
+                .post("/logintest")
                 .then()
                 .statusCode(401);
     }

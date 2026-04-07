@@ -9,7 +9,29 @@ import java.util.*;
 @RestController
 @RequestMapping("/bank") // Simplified to match your BaseTest + AccountTest paths
 public class AuthController {
-    private int mockBalance = 1000;
+    private static Map<String, String> userDatabase = new HashMap<>(Map.of("admin", "cityslicka"));
+    public static int mockBalance = 1000;
+
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@RequestBody Map<String, String> payload) {
+        String user = payload.get("username");
+        String pass = payload.get("password");
+        if (userDatabase.containsKey(user)) return ResponseEntity.badRequest().body("Exists");
+
+        userDatabase.put(user, pass);
+        return ResponseEntity.ok("User Created");
+    }
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> payload) {
+        String user = payload.get("username");
+        String pass = payload.get("password");
+
+        if (userDatabase.containsKey(user) && userDatabase.get(user).equals(pass)) {
+            return ResponseEntity.ok(Map.of("token", "fake-jwt-token"));
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
     // Matches .post("/accounts") in your test
     @PostMapping("/accounts")
     public ResponseEntity<Map<String, Object>> createAccount(@RequestBody Map<String, Object> payload) {
@@ -48,8 +70,8 @@ public class AuthController {
         return new ResponseEntity<>(response, HttpStatus.OK); // Returns 200
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, Object> payload) {
+    @PostMapping("/logintest")
+    public ResponseEntity<Map<String, Object>> logintest(@RequestBody Map<String, Object> payload) {
         Map<String, Object> response = new HashMap<>();
 
         // 1. Check for Missing Password (TC_Auth_002)
