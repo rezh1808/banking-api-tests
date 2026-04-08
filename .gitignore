@@ -37,3 +37,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+# Database files
+*.db
+*.trace.db
+data/
