@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang = xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Reza's Bank Dashboard</title>
@@ -13,15 +13,23 @@
     </style>
 </head>
 <body>
+
 <div class="container">
-    <h2>Banking Dashboard</h2>
-    <div class="balance-label">Current Balance</div>
-    <p class="balance-amount">$<span id="balanceDisplay" th:text="${balance}">0.00</span></p>
+    <div style="text-align: left; border-bottom: 1px solid #eee; margin-bottom: 20px; padding-bottom: 10px;">
+        <h2 id="displayUsername">Loading...</h2>
+        <p style="color: #666; font-size: 0.8rem;">Account: <span id="displayAccount">---</span></p>
+    </div>
+
+    <div class="balance-label">Available Balance</div>
+    <p class="balance-amount">$<span id="balanceDisplay">...</span></p>
 
     <hr>
 
-    <h3>Quick Transfer</h3>
-    <input type="number" id="transferAmount" placeholder="Amount to send" style="padding: 8px; width: 80%;">
+    <h2>Quick Transfer</h2>
+    <label for="transferAmount" style="display: block; margin-bottom: 5px; font-weight: bold;">
+        Amount to Transfer:
+    </label>
+    <input type="number" id="transferAmount" name="transferAmount" placeholder="e.g. 100" style="padding: 8px; width: 80%;">
     <button class="btn" onclick="sendMoney()">Send Money</button>
     <button class="btn" style="background:#e74c3c" onclick="logout()">Logout</button>
     <p id="statusMessage" style="margin-top: 15px; font-weight: bold;"></p>
@@ -29,38 +37,39 @@
 
 <script>
     async function sendMoney() {
-        const amount = document.getElementById('transferAmount').value;
-        const status = document.getElementById('statusMessage');
+        const token = localStorage.getItem("sessionToken");
+
+        // 1. Get the ELEMENTS (Objects), not just the values
+        const amountInput = document.getElementById('transferAmount');
         const balanceSpan = document.getElementById('balanceDisplay');
+        const status = document.getElementById('statusMessage');
 
-        if (!amount || amount <= 0) {
-            status.innerText = "Please enter a valid amount";
-            status.style.color = "red";
-            return;
-        }
+        // 2. Get the value only when you're ready to send it
+        const amountValue = amountInput.value;
 
-        // This talks to your AuthController @PostMapping("/transfer")
         const response = await fetch('/bank/transfer', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fromAccount: "ACC123",
-                toAccount: "ACC456",
-                amount: parseInt(amount)
-            })
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            },
+            body: JSON.stringify({ amount: amountValue })
         });
 
         if (response.ok) {
+            /** @type {{newBalance: number}} */
             const data = await response.json();
-            status.innerText = "Transfer Successful!";
+            balanceSpan.innerText = `${data.newBalance}`;
+            status.innerText = "Transfer Successful! -$" + amountValue;
             status.style.color = "green";
-            // Update the UI balance immediately without refreshing!
-            balanceSpan.innerText = data.newBalance;
+            amountInput.value = "";
         } else {
-            status.innerText = "Transfer Failed (Insufficient Funds)";
+            const errorData = await response.json();
+            status.innerText = errorData.message || "Transfer Failed";
             status.style.color = "red";
         }
     }
+
     // Security Check: If not logged in, send back to login
     if (localStorage.getItem("isLoggedIn") !== "true") {
         window.location.href = "/ui/login";
@@ -70,6 +79,28 @@
         localStorage.removeItem("isLoggedIn");
         window.location.href = "/ui/login";
     }
+
+    async function loadDashboard() {
+        const token = localStorage.getItem("sessionToken");
+
+        const response = await fetch('/bank/user-info', {
+            headers: {'Authorization': token}
+        });
+
+        if (response.ok) {
+            /** @type {{username: string, accountNumber: string, balance: number}} */
+            const user = await response.json();
+            console.log("Data from server:", user);
+            document.getElementById('displayUsername').innerText = "Welcome, " + user.username;
+            document.getElementById('displayAccount').innerText = user.accountNumber;
+            document.getElementById('balanceDisplay').innerText = user.balance;
+        } else {
+            // If token is wrong or missing, go back to login
+            console.error("Failed to load user info");
+            window.location.href = "/ui/login";
+             }
+    }
+    document.addEventListener('DOMContentLoaded', loadDashboard);
 </script>
 </body>
 </html>

@@ -47,15 +47,21 @@
             body: JSON.stringify(payload)
         });
 
-        if (response.ok) {
+        if (response.ok)
             if (isLoginMode) {
-                localStorage.setItem("isLoggedIn", "true"); // Simple "Session"
-                window.location.href = "/ui/dashboard";
-            } else {
+                {
+                    const data = await response.json();
+                    // Save the token so the Dashboard can use it later
+                    localStorage.setItem("sessionToken", data.token);
+                    localStorage.setItem("isLoggedIn", "true");
+                    window.location.href = "/ui/dashboard";
+                }
+            }
+            else {
                 alert("Account created! Please login.");
                 toggleForm();
             }
-        } else {
+            else{
             document.getElementById('message').innerText = "Auth Failed!";
         }
     }

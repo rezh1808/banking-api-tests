@@ -1,110 +1,139 @@
 package com.qa.controller;
 
+import com.bank.User;
+import com.bank.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
-@RequestMapping("/bank") // Simplified to match your BaseTest + AccountTest paths
+@RequestMapping("/bank")
 public class AuthController {
-    private static Map<String, String> userDatabase = new HashMap<>(Map.of("admin", "cityslicka"));
-    public static int mockBalance = 1000;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // Tokens are short-lived, so keeping them in RAM is fine for now
+    private static final Map<String, String> activeSessions = new ConcurrentHashMap<>();
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody Map<String, String> payload) {
-        String user = payload.get("username");
-        String pass = payload.get("password");
-        if (userDatabase.containsKey(user)) return ResponseEntity.badRequest().body("Exists");
-
-        userDatabase.put(user, pass);
-        return ResponseEntity.ok("User Created");
-    }
-    @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> payload) {
-        String user = payload.get("username");
+        String name = payload.get("username");
         String pass = payload.get("password");
 
-        if (userDatabase.containsKey(user) && userDatabase.get(user).equals(pass)) {
-            return ResponseEntity.ok(Map.of("token", "fake-jwt-token"));
+        // Use the Repository to check the database
+        if (userRepository.existsById(name)) {
+            return ResponseEntity.badRequest().body("User exists");
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        // Save the new User object to the database
+        userRepository.save(new User(name, pass));
+        return ResponseEntity.ok("Registered");
     }
 
-    // Matches .post("/accounts") in your test
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, String> payload) {
+        String username = payload.get("username");
+        String password = payload.get("password");
+
+        User user = userRepository.findById(username).orElse(null);
+
+        if (user != null && user.getPassword().equals(password)) {
+            String token = UUID.randomUUID().toString();
+            activeSessions.put(token, username);
+            return ResponseEntity.ok(Map.of("token", token));
+        } else {
+            return ResponseEntity.status(401).body("Invalid credentials");
+        }
+    }
+
+    @GetMapping("/user-info")
+    public ResponseEntity<User> getUserInfo(@RequestHeader("Authorization") String token) {
+        String username = activeSessions.get(token);
+        if (username == null) return ResponseEntity.status(403).build();
+
+        // Fetch the latest data from the database
+        return userRepository.findById(username)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.status(404).build());
+    }
+
+    @PostMapping("/transfer")
+    public ResponseEntity<Map<String, Object>> transfer(
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, Object> payload) {
+
+        String username = activeSessions.get(token);
+        if (username == null) return ResponseEntity.status(403).build();
+
+        User sender = userRepository.findById(username).orElse(null);
+        if (sender == null) return ResponseEntity.status(404).build();
+
+        int amount = Integer.parseInt(payload.get("amount").toString());
+
+        if (sender.getBalance() < amount) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Insufficient funds"));
+        }
+
+        // Update the object and SAVE it back to the database
+        sender.setBalance(sender.getBalance() - amount);
+        userRepository.save(sender);
+
+        return ResponseEntity.ok(Map.of("newBalance", sender.getBalance()));
+    }
+
+    @GetMapping("/balance")
+    public ResponseEntity<Integer> getBalance(@RequestHeader("Authorization") String token) {
+        String username = activeSessions.get(token);
+        if (username == null) return ResponseEntity.status(403).build();
+
+        User currentUser = userRepository.findById(username).orElse(null);
+        if (currentUser == null) return ResponseEntity.status(404).build();
+
+        return ResponseEntity.ok(currentUser.getBalance());
+    }
+
+    // --- TEST MOCK METHODS (Kept as is for your AccountTest/BaseTest) ---
+
     @PostMapping("/accounts")
     public ResponseEntity<Map<String, Object>> createAccount(@RequestBody Map<String, Object> payload) {
-
-        // 1. Get the deposit from the request body
         Object depositObj = payload.get("initialDeposit");
         int deposit = (depositObj instanceof Integer) ? (int) depositObj : 0;
 
-        // 2. LOGIC FOR TC_Account_002 (Negative Deposit)
-        // If deposit is negative, return 400 Bad Request
-        if (deposit < 0) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        }
+        if (deposit < 0) return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 
-        // 3. LOGIC FOR TC_Account_001 (Success)
         Map<String, Object> response = new HashMap<>();
         response.put("accountId", "ACC123");
         response.put("name", payload.get("name"));
         response.put("balance", deposit);
 
-        return new ResponseEntity<>(response, HttpStatus.CREATED); // Returns 201
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
-
 
     @GetMapping("/users")
     public ResponseEntity<Map<String, Object>> getUsers(@RequestParam(defaultValue = "1") int page) {
         Map<String, Object> response = new HashMap<>();
-
-        List<String> userList = new ArrayList<>();
-        userList.add("Reza");
-        userList.add("Electrical Engineer Student");
-
+        List<String> userList = Arrays.asList("Reza", "Electrical Engineer Student");
         response.put("page", page);
         response.put("data", userList);
-
-        return new ResponseEntity<>(response, HttpStatus.OK); // Returns 200
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @PostMapping("/logintest")
     public ResponseEntity<Map<String, Object>> logintest(@RequestBody Map<String, Object> payload) {
         Map<String, Object> response = new HashMap<>();
-
-        // 1. Check for Missing Password (TC_Auth_002)
         if (!payload.containsKey("password") || payload.get("password").toString().isEmpty()) {
             response.put("message", "password required");
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); // 400
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
-
-        // 2. Check for Invalid Credentials (TC_Auth_003)
-        // Mocking a check: if password isn't "cityslicka", fail it
         if (!payload.get("password").equals("cityslicka")) {
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED); // 401
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
-
-        // 3. Success (TC_Auth_001)
         response.put("token", "QpwL5tke4Pnpja7X4");
-        return new ResponseEntity<>(response, HttpStatus.OK); // 200
-    }
-
-    @PostMapping("/transfer")
-    public ResponseEntity<Map<String, Object>> transferMoney(@RequestBody Map<String, Object> payload) {
-        int amount = (int) payload.get("amount");
-        String from = (String) payload.get("fromAccount");
-
-        // Mock Logic: Pretend "ACC123" only has $1000
-
-        if (amount > mockBalance) {
-            return new ResponseEntity<>(Map.of("message", "Insufficient funds"), HttpStatus.BAD_REQUEST);
-        }
-        return new ResponseEntity<>(Map.of(
-                "status", "Success",
-                "transactionId", UUID.randomUUID().toString(),
-                "newBalance", (mockBalance - amount)
-        ), HttpStatus.OK);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }

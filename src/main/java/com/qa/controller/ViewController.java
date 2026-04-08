@@ -1,28 +1,23 @@
 package com.qa.controller;
 
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
-@Controller // Note: Use @Controller, NOT @RestController
+@Controller
 public class ViewController {
 
-    // This matches the variable in your AuthController
-    public static int mockBalance = 1000;
-
     @GetMapping("/ui/dashboard")
-    public String getDashboard(Model model) {
-        // This sends "1000" to the HTML page
-        model.addAttribute("balance", AuthController.mockBalance);
-        return "dashboard"; // This must match the filename dashboard.html
+    public String getDashboard() {
+        // We don't need "Model" anymore because JavaScript
+        // will fetch the real balance from /bank/user-info
+        return "dashboard";
     }
 
     @GetMapping("/ui/login")
     public String showLoginPage() {
-        return "login"; // Looks for login.html
+        return "login";
     }
 
-    // Also redirect the root "/" to login
     @GetMapping("/")
     public String redirectToLogin() {
         return "redirect:/ui/login";
