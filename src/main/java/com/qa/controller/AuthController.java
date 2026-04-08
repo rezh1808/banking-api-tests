@@ -1,5 +1,7 @@
 package com.qa.controller;
 
+import com.bank.Transaction;
+import com.bank.TransactionRepository;
 import com.bank.User;
 import com.bank.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,10 +16,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequestMapping("/bank")
 public class AuthController {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
 
-    // Tokens are short-lived, so keeping them in RAM is fine for now
+    @Autowired
+    public AuthController(UserRepository userRepository, TransactionRepository transactionRepository) {
+        this.userRepository = userRepository;
+        this.transactionRepository = transactionRepository;
+    }
     private static final Map<String, String> activeSessions = new ConcurrentHashMap<>();
 
     @PostMapping("/register")
@@ -32,7 +38,7 @@ public class AuthController {
 
         // Save the new User object to the database
         userRepository.save(new User(name, pass));
-        return ResponseEntity.ok("Registered");
+        return ResponseEntity.ok("Registered Successfully");
     }
 
     @PostMapping("/login")
@@ -63,27 +69,48 @@ public class AuthController {
     }
 
     @PostMapping("/transfer")
-    public ResponseEntity<Map<String, Object>> transfer(
-            @RequestHeader("Authorization") String token,
-            @RequestBody Map<String, Object> payload) {
-
+    public ResponseEntity<?> transfer(@RequestHeader("Authorization") String token,
+                                      @RequestBody Map<String, Object> payload) {
         String username = activeSessions.get(token);
         if (username == null) return ResponseEntity.status(403).build();
 
         User sender = userRepository.findById(username).orElse(null);
-        if (sender == null) return ResponseEntity.status(404).build();
-
         int amount = Integer.parseInt(payload.get("amount").toString());
+
+        // We need to find the recipient by their Account Number
+        String targetAccNumber = payload.get("targetAccount").toString();
+        User recipient = userRepository.findByAccountNumber(targetAccNumber); // You'll need this method!
+
+        if (sender == null || recipient == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Recipient account not found"));
+        }
 
         if (sender.getBalance() < amount) {
             return ResponseEntity.badRequest().body(Map.of("message", "Insufficient funds"));
         }
 
-        // Update the object and SAVE it back to the database
+        // 1. Subtract from Sender
         sender.setBalance(sender.getBalance() - amount);
         userRepository.save(sender);
 
+        // 2. Add to Recipient
+        recipient.setBalance(recipient.getBalance() + amount);
+        userRepository.save(recipient);
+
+        // 3. Record History for both (Optional but recommended)
+        transactionRepository.save(new Transaction(username, "Sent to " + targetAccNumber, -amount));
+        transactionRepository.save(new Transaction(recipient.getUsername(), "Received from " + sender.getUsername(), amount));
+
         return ResponseEntity.ok(Map.of("newBalance", sender.getBalance()));
+    }
+
+    @GetMapping("/transactions")
+    public ResponseEntity<List<Transaction>> getHistory(@RequestHeader("Authorization") String token) {
+        String username = activeSessions.get(token);
+        if (username == null) return ResponseEntity.status(403).build();
+
+        List<Transaction> history = transactionRepository.findByUsernameOrderByTimestampDesc(username);
+        return ResponseEntity.ok(history);
     }
 
     @GetMapping("/balance")

@@ -1,51 +1,150 @@
 <!DOCTYPE html>
-<html lang = xmlns:th="http://www.thymeleaf.org">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Reza's Bank Dashboard</title>
+    <title>NyuboBank | Dashboard</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #eef2f3; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); text-align: center; width: 300px; }
-        .balance-label { color: #7f8c8d; font-size: 0.9rem; margin-bottom: 5px; }
-        .balance-amount { color: #2ecc71; font-size: 2.5rem; font-weight: bold; margin: 0; }
-        .btn { margin-top: 20px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; transition: 0.3s; }
-        .btn:hover { background: #2980b9; }
+        :root {
+            --primary: #1a73e8;
+            --dark-bg: #f8f9fa;
+            --sidebar: #ffffff;
+        }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--dark-bg); }
+
+        /* Sidebar Navigation */
+        .sidebar { width: 260px; background: var(--sidebar); border-right: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; }
+        .sidebar h1 { color: var(--primary); font-size: 1.5rem; margin-bottom: 40px; }
+        .nav-item { padding: 12px 15px; margin: 5px 0; cursor: pointer; border-radius: 8px; color: #555; transition: 0.3s; }
+        .nav-item:hover, .nav-item.active { background: var(--primary); color: white; }
+
+        /* Main Content Area */
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .user-welcome h2 { margin: 0; color: #333; }
+
+        /* Modern Banking Cards */
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .balance-card { background: linear-gradient(135deg, #1a73e8, #0d47a1); color: white; }
+        .balance-label { font-size: 0.9rem; opacity: 0.8; }
+        .balance-amount { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
+
+        /* Hidden Sections */
+        .section { display: none; }
+        .section.active { display: block; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        .status-success { color: #28a745; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div style="text-align: left; border-bottom: 1px solid #eee; margin-bottom: 20px; padding-bottom: 10px;">
-        <h2 id="displayUsername">Loading...</h2>
-        <p style="color: #666; font-size: 0.8rem;">Account: <span id="displayAccount">---</span></p>
-    </div>
-
-    <div class="balance-label">Available Balance</div>
-    <p class="balance-amount">$<span id="balanceDisplay">...</span></p>
-
-    <hr>
-
-    <h2>Quick Transfer</h2>
-    <label for="transferAmount" style="display: block; margin-bottom: 5px; font-weight: bold;">
-        Amount to Transfer:
-    </label>
-    <input type="number" id="transferAmount" name="transferAmount" placeholder="e.g. 100" style="padding: 8px; width: 80%;">
-    <button class="btn" onclick="sendMoney()">Send Money</button>
-    <button class="btn" style="background:#e74c3c" onclick="logout()">Logout</button>
-    <p id="statusMessage" style="margin-top: 15px; font-weight: bold;"></p>
+<div class="sidebar">
+    <h1>NyuboBank</h1>
+    <div class="nav-item active" onclick="showSection('overview')">Balance & Transfer</div>
+    <div class="nav-item" onclick="showSection('history')">Transaction History</div>
+    <div class="nav-item" style="margin-top: auto; color: #dc3545;" onclick="logout()">Logout</div>
 </div>
 
+<div class="main-content">
+    <div class="header">
+        <div class="user-welcome">
+            <h2 id="displayUsername">Welcome back, User</h2>
+            <span style="color: #888;" id="displayAccount">Acc: ---</span>
+        </div>
+    </div>
+
+    <div id="overview" class="section active">
+        <div class="card balance-card">
+            <div class="balance-label">Current Balance</div>
+            <div class="balance-amount">$<span id="balanceDisplay">...</span></div>
+        </div>
+
+        <div class="card">
+            <h3>Quick Transfer</h3>
+            <label>
+            <input type="text" id="targetAcc" placeholder="Recipient Account Number" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+            <input type="number" id="amount" placeholder="Amount ($)" style="width: 100%; padding: 10px; margin-bottom: 15px;">
+            </label>
+            <button onclick="handleTransfer()" style="background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; width: 100%;">Send Money</button>
+            <p id="message"></p>
+        </div>
+    </div>
+
+    <div id="history" class="section">
+        <div class="card">
+            <h3>Recent Transactions</h3>
+            <table>
+                <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody id="historyTable">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
 <script>
-    async function sendMoney() {
+    // 1. NAVIGATION LOGIC
+    function showSection(sectionId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+        document.getElementById(sectionId).classList.add('active');
+        // Fix for "Deprecated symbol" - use the global event or pass 'this'
+        if (event) event.currentTarget.classList.add('active');
+
+        if (sectionId === 'history') {
+            loadHistory();
+        }
+    }
+
+    // 2. SECURITY & LOGOUT
+    if (localStorage.getItem("isLoggedIn") !== "true") {
+        window.location.href = "/ui/login";
+    }
+
+    function logout() {
+        localStorage.clear(); // Clears token and login status
+        window.location.href = "/ui/login";
+    }
+
+    // 3. LOAD DASHBOARD DATA
+    async function loadDashboard() {
         const token = localStorage.getItem("sessionToken");
+        const response = await fetch('/bank/user-info', {
+            headers: {'Authorization': token}
+        });
 
-        // 1. Get the ELEMENTS (Objects), not just the values
-        const amountInput = document.getElementById('transferAmount');
-        const balanceSpan = document.getElementById('balanceDisplay');
-        const status = document.getElementById('statusMessage');
+        if (response.ok) {
+            const user = await response.json();
+            document.getElementById('displayUsername').innerText = "Welcome, " + user.username;
+            document.getElementById('displayAccount').innerText = "Acc: " + user.accountNumber;
+            document.getElementById('balanceDisplay').innerText = user.balance;
+        } else {
+            window.location.href = "/ui/login";
+        }
+    }
 
-        // 2. Get the value only when you're ready to send it
-        const amountValue = amountInput.value;
+    // 4. TRANSFER LOGIC (Moved OUTSIDE loadDashboard)
+    async function handleTransfer() {
+        const target = document.getElementById('targetAcc').value;
+        const amt = document.getElementById('amount').value;
+        const token = localStorage.getItem("sessionToken");
+        const msgElem = document.getElementById('message');
+
+        if (!target || !amt) {
+            msgElem.innerText = "Please fill in all fields";
+            msgElem.style.color = "orange";
+            return;
+        }
 
         const response = await fetch('/bank/transfer', {
             method: 'POST',
@@ -53,53 +152,52 @@
                 'Content-Type': 'application/json',
                 'Authorization': token
             },
-            body: JSON.stringify({ amount: amountValue })
+            body: JSON.stringify({
+                targetAccount: target,
+                amount: parseInt(amt) // Send as a number to match Java 'int'
+            })
         });
 
         if (response.ok) {
-            /** @type {{newBalance: number}} */
             const data = await response.json();
-            balanceSpan.innerText = `${data.newBalance}`;
-            status.innerText = "Transfer Successful! -$" + amountValue;
-            status.style.color = "green";
-            amountInput.value = "";
+            document.getElementById('balanceDisplay').innerText = data.newBalance;
+            msgElem.innerText = "Transfer Successful!";
+            msgElem.style.color = "green";
+            // Clear inputs
+            document.getElementById('targetAcc').value = "";
+            document.getElementById('amount').value = "";
         } else {
             const errorData = await response.json();
-            status.innerText = errorData.message || "Transfer Failed";
-            status.style.color = "red";
+            msgElem.innerText = errorData.message || "Transfer Failed";
+            msgElem.style.color = "red";
         }
     }
 
-    // Security Check: If not logged in, send back to login
-    if (localStorage.getItem("isLoggedIn") !== "true") {
-        window.location.href = "/ui/login";
-    }
-
-    function logout() {
-        localStorage.removeItem("isLoggedIn");
-        window.location.href = "/ui/login";
-    }
-
-    async function loadDashboard() {
+    // 5. TRANSACTION HISTORY LOGIC
+    async function loadHistory() {
         const token = localStorage.getItem("sessionToken");
-
-        const response = await fetch('/bank/user-info', {
-            headers: {'Authorization': token}
+        const response = await fetch('/bank/transactions', {
+            headers: { 'Authorization': token }
         });
 
         if (response.ok) {
-            /** @type {{username: string, accountNumber: string, balance: number}} */
-            const user = await response.json();
-            console.log("Data from server:", user);
-            document.getElementById('displayUsername').innerText = "Welcome, " + user.username;
-            document.getElementById('displayAccount').innerText = user.accountNumber;
-            document.getElementById('balanceDisplay').innerText = user.balance;
-        } else {
-            // If token is wrong or missing, go back to login
-            console.error("Failed to load user info");
-            window.location.href = "/ui/login";
-             }
+            const history = await response.json();
+            const tableBody = document.getElementById('historyTable');
+            tableBody.innerHTML = "";
+
+            history.forEach(tx => {
+                const amountClass = tx.amount < 0 ? "" : "status-success";
+                const row = `<tr>
+                    <td>${new Date(tx.timestamp).toLocaleString()}</td>
+                    <td>${tx.description}</td>
+                    <td class="${amountClass}">${tx.amount < 0 ? tx.amount : "+" + tx.amount}</td>
+                    <td><span class="status-success">Completed</span></td>
+                </tr>`;
+                tableBody.innerHTML += row;
+            });
+        }
     }
+
     document.addEventListener('DOMContentLoaded', loadDashboard);
 </script>
 </body>

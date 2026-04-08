@@ -10,12 +10,11 @@ import java.util.UUID;
 @Getter @Setter
 public class User {
     @Id
-    private String username; // Username is now the "Primary Key"
+    private String username;
     private String password;
     private int balance;
     private String accountNumber;
 
-    // JPA needs a default constructor
     public User() {}
 
     public User(String username, String password) {
