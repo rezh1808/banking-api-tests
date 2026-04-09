@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
+    <title>NyuboBank | Verify Account</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f8f9fa; }
+        .verify-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        h2 { color: #1a73e8; margin-bottom: 10px; }
+        p { color: #666; font-size: 0.9rem; margin-bottom: 25px; }
+        input { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px; font-size: 1.1rem; text-align: center; letter-spacing: 5px; box-sizing: border-box; }
+        button { width: 100%; background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+        #message { margin-top: 15px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="verify-card">
+    <h2>Verify Your Account</h2>
+    <p>Enter the code sent to your email.</p>
+    <input type="text" id="otp" placeholder="6-digit code">
+    <button onclick="handleVerify()">Verify</button>
+
+    <div class="resend-container">
+        <p id="timerText">Wait <span id="timer">30</span>s to resend</p>
+        <button id="resendBtn" onclick="handleResend()" disabled style="background: #95a5a6;">Resend OTP</button>
+    </div>
+
+    <p id="msg"></p>
+</div>
+
+<script>
+    {
+        async function handleVerify(e) {
+            if (e) e.preventDefault();
+
+            const otpInput = document.getElementById('otp');
+            const msg = document.getElementById('msg');
+
+            if (!otpInput) {
+                console.error("Input with ID 'otp' not found!");
+                return;
+            }
+
+            const otp = otpInput.value;
+            const urlParams = new URLSearchParams(window.location.search);
+            const user = urlParams.get('user');
+
+            try {
+                const response = await fetch('/bank/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, otpCode: otp })
+                });
+
+                if (response.ok) {
+                    alert("Verification Successful! You can now login.");
+                    window.location.href = "/ui/login";
+                } else {
+                    const errorText = await response.text();
+                    msg.innerText = errorText || "Invalid Code";
+                    msg.style.color = "red";
+                }
+            } catch (err) {
+                msg.innerText = "Check your internet connection.";
+            }
+        }
+        // Make sure your button has onclick="handleVerify(event)"
+        window.handleVerify = handleVerify;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('user');
+
+    let timeLeft = 30;
+    function startTimer() {
+        const timerElem = document.getElementById('timer');
+        const resendBtn = document.getElementById('resendBtn');
+        const timerText = document.getElementById('timerText');
+
+        const interval = setInterval(() => {
+            timeLeft--;
+            timerElem.innerText = timeLeft.toString();
+            if (timeLeft <= 0) {
+                clearInterval(interval);
+                resendBtn.disabled = false;
+                resendBtn.style.background = "#34495e";
+                timerText.style.display = "none";
+            }
+        }, 1000);
+    }
+
+    async function handleResend() {
+        const msg = document.getElementById('msg');
+        const urlParams = new URLSearchParams(window.location.search);
+        const username = urlParams.get('user'); // Make sure this gets "Reza" from the URL
+
+        try {
+            // Explicitly include the full URL for localhost
+            const response = await fetch(`/bank/resend-otp?username=${username}`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                msg.innerText = "Check Mailtrap for your new code!";
+                msg.style.color = "green";
+            } else {
+                const errorText = await response.text();
+                console.error("Server Error:", errorText);
+                msg.innerText = "Server error. Check IntelliJ logs.";
+            }
+        } catch (err) {
+            console.error("Fetch Error:", err);
+            msg.innerText = "Blocked by Browser Security (CSP).";
+        }
+    }
+
+    // Start timer when page loads
+    window.onload = startTimer;
+</script>
+</body>
+</html>

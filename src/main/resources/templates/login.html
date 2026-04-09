@@ -1,25 +1,39 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en">
 <head>
-    <title>Bank Login</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval';">
+    <title>NyuboBank | Welcome</title>
     <style>
-        body { font-family: sans-serif; background: #2c3e50; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 300px; text-align: center; }
-        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        #error { color: #e74c3c; font-size: 0.8rem; margin-top: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 350px; text-align: center; }
+        h2 { color: #2c3e50; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; transition: 0.3s; }
+        input:focus { border-color: #27ae60; outline: none; }
+        .btn { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; margin-top: 10px; }
+        .btn:hover { background: #219150; }
+        #message { font-size: 0.85rem; margin-top: 15px; min-height: 1.2em; }
+        .hidden { display: none; }
+        a { color: #2980b9; text-decoration: none; cursor: pointer; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 <div class="login-card">
-    <h2 id="formTitle">Bank Login</h2>
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
+    <h2 id="formTitle">NyuboBank Login</h2>
+
+    <input type="text" id="username" placeholder="Username" aria-label="Username">
+    <input type="email" id="email" placeholder="Email Address" class="hidden" aria-label="Email Address">
+    <input type="password" id="password" placeholder="Password" aria-label="Password">
 
     <button class="btn" id="mainBtn" onclick="handleAuth()">Login</button>
 
-    <p style="font-size: 0.8rem; margin-top:15px;">
-        <a href="#" id="toggleLink" onclick="toggleForm()">New here? Create Account</a>
+    <p style="font-size: 0.85rem; margin-top: 10px;">
+        <a href="/ui/forgot-password" style="color: #888;">Forgot Password?</a>
+    </p>
+
+    <p style="font-size: 0.85rem; margin-top:20px;">
+        <span id="toggleText">New here?</span>
+        <a id="toggleLink" onclick="toggleForm()">Create Account</a>
     </p>
     <p id="message"></p>
 </div>
@@ -29,40 +43,96 @@
 
     function toggleForm() {
         isLoginMode = !isLoginMode;
-        document.getElementById('formTitle').innerText = isLoginMode ? "Bank Login" : "Create Account";
-        document.getElementById('mainBtn').innerText = isLoginMode ? "Login" : "Register";
-        document.getElementById('toggleLink').innerText = isLoginMode ? "New here? Create Account" : "Back to Login";
+        const forgotLink = document.querySelector('a[href="/ui/forgot-password"]');
+        const emailField = document.getElementById('email');
+        const formTitle = document.getElementById('formTitle');
+        const mainBtn = document.getElementById('mainBtn');
+        const toggleText = document.getElementById('toggleText');
+        const toggleLink = document.getElementById('toggleLink');
+        const message = document.getElementById('message');
+
+        // Clear messages
+        message.innerText = "";
+
+        if (isLoginMode) {
+            forgotLink.style.display = "inline";
+            formTitle.innerText = "NyuboBank Login";
+            mainBtn.innerText = "Login";
+            toggleText.innerText = "New here?";
+            toggleLink.innerText = "Create Account";
+            emailField.classList.add('hidden');
+        } else {
+            forgotLink.style.display = "none";
+            formTitle.innerText = "Create Account";
+            mainBtn.innerText = "Register";
+            toggleText.innerText = "Already have an account?";
+            toggleLink.innerText = "Login here";
+            emailField.classList.remove('hidden');
+        }
     }
 
-    async function handleAuth() {
+    async function handleAuth(event) {
+        if (event) event.preventDefault();
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const email = document.getElementById('email').value;
+        const messageElem = document.getElementById('message');
+        const mainBtn = document.getElementById('mainBtn');
+
+        // 1. Set to "Processing" state
+        mainBtn.disabled = true;
+        const originalText = mainBtn.innerText;
+        mainBtn.innerText = "Processing...";
+
+        // 2. Validation Check (Early Exit)
+        // If Registering, we need email. If logging in, just username/pass.
+        if (!username || !password || (!isLoginMode && !email)) {
+            messageElem.innerText = "Please fill in all required fields.";
+            messageElem.style.color = "#e74c3c";
+
+            // Reset button before exiting
+            mainBtn.disabled = false;
+            mainBtn.innerText = originalText;
+            return;
+        }
+
         const path = isLoginMode ? '/bank/login' : '/bank/register';
-        const payload = {
-            username: document.getElementById('username').value,
-            password: document.getElementById('password').value
-        };
+        const payload = { username, password };
+        if (!isLoginMode) payload.email = email;
 
-        const response = await fetch(path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        try {
+            const response = await fetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-        if (response.ok)
-            if (isLoginMode) {
-                {
+            if (response.ok) {
+                if (isLoginMode) {
+                    /** @type {{token: string}} */
                     const data = await response.json();
-                    // Save the token so the Dashboard can use it later
                     localStorage.setItem("sessionToken", data.token);
                     localStorage.setItem("isLoggedIn", "true");
+                    localStorage.setItem("loggedInUser", username);
                     window.location.href = "/ui/dashboard";
+                } else {
+                    window.location.href = `/ui/verify?user=${username}`;
                 }
+            } else {
+                const errorText = await response.text();
+                messageElem.style.color = "#e74c3c";
+                messageElem.innerText = errorText || "Authentication Failed!";
             }
-            else {
-                alert("Account created! Please login.");
-                toggleForm();
-            }
-            else{
-            document.getElementById('message').innerText = "Auth Failed!";
+        } catch (err) {
+            messageElem.innerText = "Server error. Please try again later.";
+            messageElem.style.color = "#e74c3c";
+        } finally {
+            // 3. THE FAILSAFE: Always re-enable the button if we haven't redirected
+            // If the page redirected (success), this doesn't matter.
+            // If there was an error, the button becomes clickable again.
+            mainBtn.disabled = false;
+            mainBtn.innerText = originalText;
         }
     }
 </script>

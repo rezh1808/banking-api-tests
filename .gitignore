@@ -42,3 +42,6 @@ build/
 *.db
 *.trace.db
 data/
+
+# Ignore sensitive properties (If you put passwords in here)
+/src/main/resources/application-local.properties

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval';">
+    <meta charset="UTF-8">
+    <title>NyuboBank | Register</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
+        .auth-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; }
+        h2 { color: #1a73e8; text-align: center; margin-bottom: 30px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+        .links { text-align: center; margin-top: 20px; font-size: 0.9rem; }
+        a { color: #1a73e8; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="auth-card">
+    <h2>Create Account</h2>
+    <input type="text" id="regUsername" placeholder="Username" aria-label="Username">
+    <input type="email" id="regEmail" placeholder="Email Address" aria-label="Email Address">
+    <input type="password" id="regPassword" placeholder="Password" aria-label="Password">
+    <button type="button" id="btnRegister">Sign Up</button>
+
+    <div class="links">
+        Already have an account? <a href="/ui/login.html">Login here</a>
+    </div>
+    <p id="errorMsg" style="color: red; text-align: center; font-size: 0.8rem;"></p>
+</div>
+
+<script>
+    {
+        async function handleRegister(event) {
+            if (event) event.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const messageElem = document.getElementById('message');
+            const registerBtn = document.getElementById('registerBtn'); // Ensure your button has this ID
+
+            // 1. Enter "Processing" state (Pull signal LOW)
+            registerBtn.disabled = true;
+            const originalText = registerBtn.innerText;
+            registerBtn.innerText = "Processing...";
+
+            // 2. Early Validation Check
+            if (!username || !email || !password) {
+                messageElem.innerText = "Please fill in all fields.";
+                messageElem.style.color = "#e74c3c";
+
+                // Reset button immediately
+                registerBtn.disabled = false;
+                registerBtn.innerText = originalText;
+                return;
+            }
+
+            try {
+                const response = await fetch('/bank/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                if (response.ok) {
+                    // Success: Move to verification
+                    window.location.href = `/ui/verify?user=${username}`;
+                } else {
+                    // Error from server (e.g., User already exists)
+                    const errorText = await response.text();
+                    messageElem.style.color = "#e74c3c";
+                    messageElem.innerText = errorText || "Registration Failed!";
+                }
+            } catch (err) {
+                // Network or Server error
+                messageElem.innerText = "Server error. Please try again later.";
+                messageElem.style.color = "#e74c3c";
+            } finally {
+                // 3. THE FAILSAFE (Always return signal to HIGH)
+                // If the registration fails for any reason, the button resets.
+                registerBtn.disabled = false;
+                registerBtn.innerText = originalText;
+            }
+        }
+
+        // This links the button to the logic without using deprecated 'onclick'
+        document.getElementById('btnRegister').addEventListener('click', handleRegister);
+    }
+</script>
+</body>
+</html>

@@ -1,11 +1,9 @@
 package com.bank;
 
+import com.bank.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 import java.util.List;
 
-@Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    // This solves the "Cannot resolve method findByUsername..." error
     List<Transaction> findByUsernameOrderByTimestampDesc(String username);
 }

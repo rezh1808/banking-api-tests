@@ -1,29 +1,26 @@
 package com.bank;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
-@Getter @Setter
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class Transaction {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // Automatically counts 1, 2, 3...
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String username;
+    private Double amount;
     private String description;
-    private int amount;
     private LocalDateTime timestamp;
-
-    public Transaction() {} // Required by JPA
 
     public Transaction(String username, String description, int amount) {
         this.username = username;
         this.description = description;
-        this.amount = amount;
-        this.timestamp = LocalDateTime.now();
+        this.amount = (double) amount;
+        this.timestamp = java.time.LocalDateTime.now();
     }
 }

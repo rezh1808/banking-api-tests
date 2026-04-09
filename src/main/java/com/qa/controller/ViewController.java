@@ -8,8 +8,6 @@ public class ViewController {
 
     @GetMapping("/ui/dashboard")
     public String getDashboard() {
-        // We don't need "Model" anymore because JavaScript
-        // will fetch the real balance from /bank/user-info
         return "dashboard";
     }
 
@@ -18,8 +16,19 @@ public class ViewController {
         return "login";
     }
 
+    // ADD THIS METHOD BELOW
+    @GetMapping("/ui/verify")
+    public String showVerifyPage() {
+        return "verify";
+    }
+
     @GetMapping("/")
     public String redirectToLogin() {
         return "redirect:/ui/login";
+    }
+
+    @GetMapping("/ui/forgot-password")
+    public String forgotPasswordPage() {
+        return "forgot-password";
     }
 }
