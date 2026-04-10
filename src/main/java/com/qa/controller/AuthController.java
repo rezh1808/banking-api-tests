@@ -32,27 +32,41 @@ public class AuthController {
     private static final Map<String, String> activeSessions = new ConcurrentHashMap<>();
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, String> payload) {
-        String name = payload.get("username");
-        String pass = payload.get("password");
-        String email = payload.get("email");
-
-        if (userRepository.existsById(name)) {
-            return ResponseEntity.badRequest().body("User already exists");
+    public ResponseEntity<String> register(@RequestBody User user) {
+        // 1. Validate Username
+        if (!user.getUsername().matches("^(?=.*\\d)[a-z0-9]{4,8}$")) {
+            return ResponseEntity.badRequest().body("Username: 4-8 chars, must have letters and numbers!");
+        }
+        // 2. Validate Email
+        if (!user.getEmail().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            return ResponseEntity.badRequest().body("Invalid email format.");
+        }
+        // 3. Validate Password
+        if (!user.getPassword().matches("^(?=.*[A-Z])(?=.*\\d).{8,}$")) {
+            return ResponseEntity.badRequest().body("Password must have 8+ characters, an uppercase letter, and a number.");
         }
 
-        User newUser = new User(name, pass, email);
-        String otp = String.valueOf(new Random().nextInt(899999) + 100000);
-        newUser.setOtpCode(otp);
-        userRepository.save(newUser);
-
-        // SEND THE EMAIL
-        try {
-            emailService.sendOtpEmail(email, otp);
-            return ResponseEntity.ok(Map.of("message", "OTP sent to " + email));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error sending email: " + e.getMessage());
+        // 4. Check if user already exists
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            return ResponseEntity.status(409).body("Username already taken.");
         }
+        // 5. CHECK IF EMAIL EXISTS
+        if (userRepository.findByEmailIgnoreCase(user.getEmail()).isPresent()) {
+            return ResponseEntity.status(409).body("This email already has an account.");
+        }
+        // 6. Generate the OTP first
+        String registrationOtp = String.valueOf((int)((Math.random() * 900000) + 100000));
+
+        // 7. Attach it to the user object
+        user.setOtpCode(registrationOtp);
+
+        // 8. SAVE to the database (This MUST happen before the email is sent)
+        userRepository.save(user);
+
+        // 9. Send the email using the local variable, not the database fetch
+        emailService.sendEmail(user.getEmail(), "Verify your NyuboBank Account", "Your code is: " + registrationOtp);
+
+        return ResponseEntity.ok("Registration successful!");
     }
 
     @PostMapping("/verify")
@@ -74,19 +88,18 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verify(@RequestBody Map<String, String> payload) {
-        String username = payload.get("username");
-        String code = payload.get("otp");
+    public ResponseEntity<String> verifyOtp(@RequestParam String username, @RequestParam String otp) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        User user = userRepository.findById(username).orElse(null);
-
-        if (user != null && user.getOtpCode().equals(code)) {
-            user.setVerified(true);
-            user.setOtpCode(null);
+        if (user.getOtpCode() != null && user.getOtpCode().equals(otp)) {
+            user.setVerified(true); // Assuming you have an enabled flag
+            user.setOtpCode(null);  // Clear it so it can't be used again
             userRepository.save(user);
-            return ResponseEntity.ok(Map.of("message", "Account Verified!"));
+            return ResponseEntity.ok("Verification successful");
+        } else {
+            return ResponseEntity.status(400).body("Invalid or expired OTP");
         }
-        return ResponseEntity.status(401).body("Invalid OTP Code");
     }
 
     @PostMapping("/resend-otp")
@@ -210,6 +223,12 @@ public class AuthController {
         // 2. Verify OTP (This uses the 'request' parameter!)
         if (user.getOtpCode() != null && user.getOtpCode().equals(request.getOtp())) {
 
+            //Password Requirement
+            String passRegex = "^(?=.*[A-Z])(?=.*\\d).{8,}$";
+
+            if (!request.getNewPassword().matches(passRegex)) {
+                return ResponseEntity.badRequest().body("Password does not meet security requirements.");
+            }
             // 3. Update Password & Clear OTP
             user.setPassword(request.getNewPassword()); // In a real app, use passwordEncoder!
             user.setOtpCode(null);

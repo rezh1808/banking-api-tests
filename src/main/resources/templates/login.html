@@ -23,7 +23,10 @@
 
     <input type="text" id="username" placeholder="Username" aria-label="Username">
     <input type="email" id="email" placeholder="Email Address" class="hidden" aria-label="Email Address">
-    <input type="password" id="password" placeholder="Password" aria-label="Password">
+    <div class="input-group" style="position: relative;">
+        <input type="password" id="password" placeholder="Enter Password">
+        <span id="togglePass" style="position: absolute; right: 10px; top: 12px; cursor: pointer;">👁️</span>
+    </div>
 
     <button class="btn" id="mainBtn" onclick="handleAuth()">Login</button>
 
@@ -40,6 +43,25 @@
 
 <script>
     let isLoginMode = true;
+    document.addEventListener('DOMContentLoaded', () => {
+        setupPasswordToggle('password', 'togglePass');
+    });
+    function setupPasswordToggle(inputId, toggleId) {
+        const passwordInput = document.getElementById(inputId);
+        const toggleIcon = document.getElementById(toggleId);
+
+        // Safety check: Only add the listener if both elements actually exist on this page
+        if (passwordInput && toggleIcon) {
+            toggleIcon.addEventListener('click', () => {
+                const type = passwordInput.type === 'password' ? 'text' : 'password';
+                passwordInput.type = type;
+                toggleIcon.textContent = type === 'password' ? '👁️' : '🙈';
+            });
+            console.log(`Toggle initialized for: ${inputId}`);
+        } else {
+            console.warn(`Could not find elements: ${inputId} or ${toggleId}`);
+        }
+    }
 
     function toggleForm() {
         isLoginMode = !isLoginMode;

@@ -120,19 +120,33 @@
     // 3. LOAD DASHBOARD DATA
     async function loadDashboard() {
         const token = localStorage.getItem("sessionToken");
-        const response = await fetch('/bank/user-info', {
-            headers: {'Authorization': token}
-        });
 
-        if (response.ok) {
-            /** @type {{username: string, accountNumber: string, balance: number}} */
-            const user = await response.json();
-
-            document.getElementById('displayUsername').innerText = "Welcome, " + user.username;
-            document.getElementById('displayAccount').innerText = user.accountNumber; // Warning gone!
-            document.getElementById('balanceDisplay').innerText = user.balance.toString();       // Warning gone!
-        } else {
+        // Safety check: if no token, don't even try the fetch
+        if (!token) {
             window.location.href = "/ui/login";
+            return;
+        }
+
+        try {
+            const response = await fetch('/bank/user-info', {
+                headers: {'Authorization': token}
+            });
+
+            if (response.ok) {
+                /** @type {{username: string, accountNumber: string, balance: number}} */
+                const user = await response.json();
+
+                // Update the UI with the fresh data from the server
+                document.getElementById('displayUsername').innerText = "Welcome, " + user.username;
+                const accDisplay = document.getElementById('displayAccount');
+                accDisplay.innerText = user.accountNumber ? user.accountNumber : "BNK-PENDING";
+                document.getElementById('balanceDisplay').innerText = user.balance.toLocaleString('en-US');
+            } else {
+                // Token might be expired or invalid
+                window.location.href = "/ui/login";
+            }
+        } catch (err) {
+            console.error("Failed to load dashboard data:", err);
         }
     }
 

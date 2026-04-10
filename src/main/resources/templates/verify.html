@@ -2,76 +2,204 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NyuboBank | Verify Account</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f8f9fa; }
-        .verify-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
-        h2 { color: #1a73e8; margin-bottom: 10px; }
-        p { color: #666; font-size: 0.9rem; margin-bottom: 25px; }
-        input { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px; font-size: 1.1rem; text-align: center; letter-spacing: 5px; box-sizing: border-box; }
-        button { width: 100%; background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 1rem; }
-        #message { margin-top: 15px; font-size: 0.9rem; }
+        :root {
+            --primary: #2563eb; /* Modern Blue */
+            --success: #10b981;
+            --bg: #f3f4f6;
+            --text: #1f2937;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: var(--text);
+        }
+
+        .verify-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        h2 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+        p { color: #6b7280; font-size: 0.95rem; margin-bottom: 2rem; }
+
+        #username-display {
+            font-weight: 700;
+            color: var(--text);
+            background: #eff6ff;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .otp-container {
+            margin-bottom: 2rem;
+        }
+
+        #otpInput {
+            width: 100%;
+            padding: 1rem;
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 1rem;
+            transition: all 0.2s;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        #otpInput:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .btn:hover { background-color: #1d4ed8; }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
+
+        .resend-container { margin-top: 1.5rem; }
+
+        #resendBtn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        #resendBtn:hover { text-decoration: underline; }
+
+        #message {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            min-height: 1.25rem;
+        }
     </style>
 </head>
 <body>
 
 <div class="verify-card">
-    <h2>Verify Your Account</h2>
-    <p>Enter the code sent to your email.</p>
-    <input type="text" id="otp" placeholder="6-digit code">
-    <button onclick="handleVerify()">Verify</button>
+    <span class="logo">NyuboBank</span>
+    <h2>Verify your identity</h2>
+    <p>We've sent a 6-digit code to your email for <span id="username-display">Loading...</span></p>
 
-    <div class="resend-container">
-        <p id="timerText">Wait <span id="timer">30</span>s to resend</p>
-        <button id="resendBtn" onclick="handleResend()" disabled style="background: #95a5a6;">Resend OTP</button>
+    <div class="otp-container">
+        <input type="text" id="otpInput" placeholder="000000" maxlength="6" autocomplete="one-time-code">
     </div>
 
-    <p id="msg"></p>
+    <button class="btn" id="verifyBtn" onclick="handleVerify()">Verify Account</button>
+
+    <div class="resend-container">
+        <button id="resendBtn" onclick="handleResend()">Didn't get a code? Resend</button>
+    </div>
+
+    <p id="message"></p>
 </div>
 
 <script>
+    // 1. GLOBAL VARIABLES (Top of the box)
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('user') || 'User';
+
+    // 2. THE MAIN POWER SWITCH (This runs automatically when page loads)
+    document.addEventListener('DOMContentLoaded', () => {
+        const displayElem = document.getElementById('username-display');
+        if (displayElem) {
+            displayElem.innerText = username;
+        }
+    });
     {
-        async function handleVerify(e) {
-            if (e) e.preventDefault();
+        async function handleVerify() {
+            const btn = document.getElementById('verifyBtn');
+            const msg = document.getElementById('message');
 
-            const otpInput = document.getElementById('otp');
-            const msg = document.getElementById('msg');
+            // 1. Check if the button is already "locked"
+            if (btn.disabled) return;
 
-            if (!otpInput) {
-                console.error("Input with ID 'otp' not found!");
-                return;
-            }
+            const otp = document.getElementById('otpInput').value;
+            const originalText = btn.innerText;
 
-            const otp = otpInput.value;
-            const urlParams = new URLSearchParams(window.location.search);
-            const user = urlParams.get('user');
+            // 2. LOCK the button immediately
+            btn.disabled = true;
+            btn.innerText = "Verifying...";
+            btn.style.opacity = "0.7";
+            btn.style.cursor = "not-allowed";
 
             try {
-                const response = await fetch('/bank/verify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, otpCode: otp })
+                const response = await fetch(`/bank/verify-otp?username=${username}&otp=${otp}`, {
+                    method: 'POST'
                 });
 
                 if (response.ok) {
-                    alert("Verification Successful! You can now login.");
-                    window.location.href = "/ui/login";
+                    msg.innerText = "Success! Account verified.";
+                    msg.style.color = "#27ae60";
+
+                    // REDIRECT TO LOGIN
+                    setTimeout(() => {
+                        window.location.href = "/ui/login";
+                    }, 2000);
+
                 } else {
-                    const errorText = await response.text();
-                    msg.innerText = errorText || "Invalid Code";
+                    // UNLOCK so they can try again
+                    msg.innerText = await response.text() || "Invalid code.";
                     msg.style.color = "red";
+
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                    btn.style.opacity = "1";
+                    btn.style.cursor = "pointer";
                 }
             } catch (err) {
-                msg.innerText = "Check your internet connection.";
+                msg.innerText = "Connection failed.";
+                msg.style.color = "red";
+
+                // UNLOCK on error
+                btn.disabled = false;
+                btn.innerText = originalText;
+                btn.style.opacity = "1";
+                btn.style.cursor = "pointer";
             }
         }
         // Make sure your button has onclick="handleVerify(event)"
         window.handleVerify = handleVerify;
     }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const username = urlParams.get('user');
 
     let timeLeft = 30;
     function startTimer() {
@@ -91,28 +219,42 @@
         }, 1000);
     }
 
+    let canResend = true;
+
     async function handleResend() {
-        const msg = document.getElementById('msg');
-        const urlParams = new URLSearchParams(window.location.search);
-        const username = urlParams.get('user'); // Make sure this gets "Reza" from the URL
+        if (!canResend) return; // Block if timer is active
+
+        const resendLink = document.getElementById('resendLink');
+        const msg = document.getElementById('message');
+
+        canResend = false; // Lock
+        resendLink.style.color = "gray";
+        resendLink.style.pointerEvents = "none";
+        msg.innerText = "Sending new code...";
 
         try {
-            // Explicitly include the full URL for localhost
-            const response = await fetch(`/bank/resend-otp?username=${username}`, {
-                method: 'POST'
-            });
-
+            const response = await fetch(`/bank/resend-otp?username=${username}`, { method: 'POST' });
             if (response.ok) {
-                msg.innerText = "Check Mailtrap for your new code!";
-                msg.style.color = "green";
-            } else {
-                const errorText = await response.text();
-                console.error("Server Error:", errorText);
-                msg.innerText = "Server error. Check IntelliJ logs.";
+                msg.innerText = "New code sent!";
+                msg.style.color = "#27ae60";
+
+                // 30-second cooldown
+                let seconds = 30;
+                const timer = setInterval(() => {
+                    seconds--;
+                    resendLink.innerText = `Resend available in ${seconds}s`;
+                    if (seconds <= 0) {
+                        clearInterval(timer);
+                        canResend = true;
+                        resendLink.innerText = "Didn't get a code? Resend";
+                        resendLink.style.color = "#2980b9";
+                        resendLink.style.pointerEvents = "auto";
+                    }
+                }, 1000);
             }
         } catch (err) {
-            console.error("Fetch Error:", err);
-            msg.innerText = "Blocked by Browser Security (CSP).";
+            canResend = true; // Unlock if request failed
+            resendLink.style.pointerEvents = "auto";
         }
     }
 

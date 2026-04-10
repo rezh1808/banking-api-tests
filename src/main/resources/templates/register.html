@@ -19,8 +19,17 @@
 <div class="auth-card">
     <h2>Create Account</h2>
     <input type="text" id="regUsername" placeholder="Username" aria-label="Username">
+    <small style="color: #888; display: block; text-align: left; margin: -5px 0 10px 5px; font-size: 0.75rem;">
+        * Lowercase & numbers only (e.g., yourname123)
+    </small>
     <input type="email" id="regEmail" placeholder="Email Address" aria-label="Email Address">
-    <input type="password" id="regPassword" placeholder="Password" aria-label="Password">
+    <div class="input-group" style="position: relative;">
+        <input type="password" id="password" placeholder="Create Password">
+        <span id="togglePass" style="position: absolute; right: 10px; top: 12px; cursor: pointer;">👁️</span>
+    </div>
+    <small style="color: #888; display: block; text-align: left; margin: -5px 0 15px 5px; font-size: 0.75rem;">
+        * Min 8 chars, 1 uppercase, 1 number
+    </small>
     <button type="button" id="btnRegister">Sign Up</button>
 
     <div class="links">
@@ -31,30 +40,68 @@
 
 <script>
     {
+        function setupPasswordToggle(inputId, toggleId) {
+            const passwordInput = document.getElementById(inputId);
+            const toggleIcon = document.getElementById(toggleId);
+
+            // Safety check: Only add the listener if both elements actually exist on this page
+            if (passwordInput && toggleIcon) {
+                toggleIcon.addEventListener('click', () => {
+                    const type = passwordInput.type === 'password' ? 'text' : 'password';
+                    passwordInput.type = type;
+                    toggleIcon.textContent = type === 'password' ? '👁️' : '🙈';
+                });
+                console.log(`Toggle initialized for: ${inputId}`);
+            } else {
+                console.warn(`Could not find elements: ${inputId} or ${toggleId}`);
+            }
+        }
+
+        const usernameRegex = /^(?=.*\d)[a-z0-9]{4,8}$/; // Lowercase and numbers only, no spaces
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/; // 8+ chars, 1 Uppercase, 1 Number
         async function handleRegister(event) {
             if (event) event.preventDefault();
 
+            // 1. Grab elements and define "Original State" first
             const username = document.getElementById('username').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const messageElem = document.getElementById('message');
-            const registerBtn = document.getElementById('registerBtn'); // Ensure your button has this ID
+            const registerBtn = document.getElementById('btnRegister'); // Use the actual button ID
+            const originalText = registerBtn.innerText; // Define this EARLY
 
-            // 1. Enter "Processing" state (Pull signal LOW)
-            registerBtn.disabled = true;
-            const originalText = registerBtn.innerText;
-            registerBtn.innerText = "Processing...";
-
-            // 2. Early Validation Check
+            // 2. Early Empty Check
             if (!username || !email || !password) {
                 messageElem.innerText = "Please fill in all fields.";
                 messageElem.style.color = "#e74c3c";
-
-                // Reset button immediately
-                registerBtn.disabled = false;
-                registerBtn.innerText = originalText;
                 return;
             }
+
+            // 3. Username Validation
+            if (!usernameRegex.test(username)) {
+                messageElem.innerText = "Username: 4-8 chars, must have letters and numbers!";
+                messageElem.style.color = "red";
+                return;
+            }
+
+            // 4. Email Validation
+            if (!emailRegex.test(email)) {
+                messageElem.innerText = "Please enter a valid email address (must include @).";
+                messageElem.style.color = "red";
+                return;
+            }
+
+            // 5. Password Validation
+            if (!passwordRegex.test(password)) {
+                messageElem.innerText = "Password: 8+ chars, 1 Uppercase, 1 Number!";
+                messageElem.style.color = "red";
+                return;
+            }
+
+            // 6. Enter "Processing" state (Pull signal LOW)
+            registerBtn.disabled = true;
+            registerBtn.innerText = "Processing...";
 
             try {
                 const response = await fetch('/bank/register', {
@@ -66,26 +113,28 @@
                 if (response.ok) {
                     // Success: Move to verification
                     window.location.href = `/ui/verify?user=${username}`;
+                } else if (response.status === 409) {
+                    messageElem.innerText = await response.text();
+                    messageElem.style.color = "red";
                 } else {
-                    // Error from server (e.g., User already exists)
-                    const errorText = await response.text();
-                    messageElem.style.color = "#e74c3c";
-                    messageElem.innerText = errorText || "Registration Failed!";
+                    messageElem.innerText = "An error occurred. Please try again.";
+                    messageElem.style.color = "red";
                 }
             } catch (err) {
-                // Network or Server error
                 messageElem.innerText = "Server error. Please try again later.";
                 messageElem.style.color = "#e74c3c";
             } finally {
-                // 3. THE FAILSAFE (Always return signal to HIGH)
-                // If the registration fails for any reason, the button resets.
+                // 6. THE FAILSAFE (Always return signal to HIGH)
                 registerBtn.disabled = false;
                 registerBtn.innerText = originalText;
             }
         }
-
         // This links the button to the logic without using deprecated 'onclick'
         document.getElementById('btnRegister').addEventListener('click', handleRegister);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupPasswordToggle('password', 'togglePass');
+        });
     }
 </script>
 </body>

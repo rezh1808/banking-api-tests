@@ -9,6 +9,7 @@ import java.util.UUID;
 @Table(name = "users")
 @Getter @Setter
 public class User {
+
     @Id
     private String username;
 
@@ -18,26 +19,30 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(name = "otp_code")
-    private String otpCode;
-
-    // This is the critical fix for your "Column not found" error
-    @Column(name = "is_verified", nullable = false)
-    private boolean isVerified = false;
-
-    private int balance;
-
     @Column(name = "account_number", unique = true)
     private String accountNumber;
 
+    private int balance = 1000;
+
+    @Column(name = "is_verified", nullable = false)
+    private boolean isVerified = false;
+
+    @Column(name = "otp_code")
+    private String otpCode;
+
     public User() {}
 
+    @PrePersist
+    public void ensureAccountDetails() {
+        if (this.accountNumber == null) {
+            this.accountNumber = "BNK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        }
+    }
+
+    // You can keep this constructor for manual testing, but @PrePersist is the primary worker
     public User(String username, String password, String email) {
         this.username = username;
         this.password = password;
         this.email = email;
-        this.balance = 1000;
-        this.isVerified = false; // New users must verify via 2FA
-        this.accountNumber = "BNK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }
