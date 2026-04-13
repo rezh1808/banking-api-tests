@@ -60,6 +60,7 @@
         const usernameRegex = /^(?=.*\d)[a-z0-9]{4,8}$/; // Lowercase and numbers only, no spaces
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/; // 8+ chars, 1 Uppercase, 1 Number
+
         async function handleRegister(event) {
             if (event) event.preventDefault();
 
@@ -68,8 +69,17 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const messageElem = document.getElementById('message');
-            const registerBtn = document.getElementById('btnRegister'); // Use the actual button ID
-            const originalText = registerBtn.innerText; // Define this EARLY
+            const registerBtn = document.getElementById('btnRegister');
+
+
+            if (registerBtn.disabled) return;
+
+            // Lock the button
+            const originalText = registerBtn.innerText;
+            registerBtn.disabled = true;
+            registerBtn.innerText = "Creating Account...";
+            registerBtn.style.opacity = "0.7";
+            registerBtn.style.cursor = "not-allowed";
 
             // 2. Early Empty Check
             if (!username || !email || !password) {
@@ -102,6 +112,8 @@
             // 6. Enter "Processing" state (Pull signal LOW)
             registerBtn.disabled = true;
             registerBtn.innerText = "Processing...";
+            registerBtn.style.opacity = "0.7";
+            registerBtn.style.cursor = "not-allowed";
 
             try {
                 const response = await fetch('/bank/register', {
@@ -116,17 +128,31 @@
                 } else if (response.status === 409) {
                     messageElem.innerText = await response.text();
                     messageElem.style.color = "red";
+                    registerBtn.disabled = false;
+                    registerBtn.innerText = originalText;
+                    registerBtn.style.opacity = "1";
+                    registerBtn.style.cursor = "pointer";
                 } else {
                     messageElem.innerText = "An error occurred. Please try again.";
                     messageElem.style.color = "red";
+                    registerBtn.disabled = false;
+                    registerBtn.innerText = originalText;
+                    registerBtn.style.opacity = "1";
+                    registerBtn.style.cursor = "pointer";
                 }
             } catch (err) {
                 messageElem.innerText = "Server error. Please try again later.";
                 messageElem.style.color = "#e74c3c";
+                registerBtn.disabled = false;
+                registerBtn.innerText = originalText;
+                registerBtn.style.opacity = "1";
+                registerBtn.style.cursor = "pointer";
             } finally {
                 // 6. THE FAILSAFE (Always return signal to HIGH)
                 registerBtn.disabled = false;
                 registerBtn.innerText = originalText;
+                registerBtn.style.opacity = "1";
+                registerBtn.style.cursor = "pointer";
             }
         }
         // This links the button to the logic without using deprecated 'onclick'

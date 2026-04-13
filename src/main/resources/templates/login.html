@@ -102,10 +102,14 @@
         const messageElem = document.getElementById('message');
         const mainBtn = document.getElementById('mainBtn');
 
-        // 1. Set to "Processing" state
-        mainBtn.disabled = true;
+        // 1. Set to "Signing in" state
+        if (mainBtn.disabled) return;
+
         const originalText = mainBtn.innerText;
-        mainBtn.innerText = "Processing...";
+        mainBtn.disabled = true;
+        mainBtn.innerText = "Signing in...";
+        mainBtn.style.opacity = "0.7";
+        mainBtn.style.cursor = "not-allowed";
 
         // 2. Validation Check (Early Exit)
         // If Registering, we need email. If logging in, just username/pass.
@@ -116,6 +120,8 @@
             // Reset button before exiting
             mainBtn.disabled = false;
             mainBtn.innerText = originalText;
+            mainBtn.style.opacity = "1";
+            mainBtn.style.cursor = "pointer";
             return;
         }
 
@@ -145,16 +151,24 @@
                 const errorText = await response.text();
                 messageElem.style.color = "#e74c3c";
                 messageElem.innerText = errorText || "Authentication Failed!";
+                mainBtn.disabled = false;
+                mainBtn.innerText = originalText;
+                mainBtn.style.opacity = "1";
+                mainBtn.style.cursor = "pointer";
             }
         } catch (err) {
             messageElem.innerText = "Server error. Please try again later.";
             messageElem.style.color = "#e74c3c";
-        } finally {
-            // 3. THE FAILSAFE: Always re-enable the button if we haven't redirected
-            // If the page redirected (success), this doesn't matter.
-            // If there was an error, the button becomes clickable again.
             mainBtn.disabled = false;
             mainBtn.innerText = originalText;
+            mainBtn.style.opacity = "1";
+            mainBtn.style.cursor = "pointer";
+        } finally {
+            // 3. THE FAILSAFE: Always re-enable the button if we haven't redirected
+            mainBtn.disabled = false;
+            mainBtn.innerText = originalText;
+            mainBtn.style.opacity = "1";
+            mainBtn.style.cursor = "pointer";
         }
     }
 </script>

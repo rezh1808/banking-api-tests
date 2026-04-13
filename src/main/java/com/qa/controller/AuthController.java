@@ -18,8 +18,12 @@ public class AuthController {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
     private final EmailService emailService;
-    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
+    // 1. ADD THE ENCODER HERE
+    @Autowired
+    private org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder;
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @Autowired
     public AuthController(UserRepository userRepository,
@@ -29,10 +33,12 @@ public class AuthController {
         this.transactionRepository = transactionRepository;
         this.emailService = emailService;
     }
+
     private static final Map<String, String> activeSessions = new ConcurrentHashMap<>();
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody User user) {
+        // ... (Keep Username and Email validation same) ...
         // 1. Validate Username
         if (!user.getUsername().matches("^(?=.*\\d)[a-z0-9]{4,8}$")) {
             return ResponseEntity.badRequest().body("Username: 4-8 chars, must have letters and numbers!");
@@ -45,26 +51,25 @@ public class AuthController {
         if (!user.getPassword().matches("^(?=.*[A-Z])(?=.*\\d).{8,}$")) {
             return ResponseEntity.badRequest().body("Password must have 8+ characters, an uppercase letter, and a number.");
         }
-
-        // 4. Check if user already exists
+        // 3. Check if user already exists
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             return ResponseEntity.status(409).body("Username already taken.");
         }
-        // 5. CHECK IF EMAIL EXISTS
+        // 4. Check if email already exists
         if (userRepository.findByEmailIgnoreCase(user.getEmail()).isPresent()) {
             return ResponseEntity.status(409).body("This email already has an account.");
         }
-        // 6. Generate the OTP first
-        String registrationOtp = String.valueOf((int)((Math.random() * 900000) + 100000));
 
-        // 7. Attach it to the user object
+        // --- Bcrypt Implementation ---
+        // 4. Hash the password AFTER it passes validation but BEFORE saving
+        String hashedPassword = passwordEncoder.encode(user.getPassword());
+        user.setPassword(hashedPassword);
+
+        String registrationOtp = String.valueOf((int)((Math.random() * 900000) + 100000));
         user.setOtpCode(registrationOtp);
 
-        // 8. SAVE to the database (This MUST happen before the email is sent)
         userRepository.save(user);
-
-        // 9. Send the email using the local variable, not the database fetch
-        emailService.sendEmail(user.getEmail(), "Verify your NyuboBank Account", "Your code is: " + registrationOtp);
+        emailService.sendEmail(user.getEmail(), "Verify Account", "Code: " + registrationOtp);
 
         return ResponseEntity.ok("Registration successful!");
     }
@@ -128,14 +133,15 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> payload) {
         String username = payload.get("username");
-        String password = payload.get("password");
+        String rawPassword = payload.get("password");
 
         User user = userRepository.findById(username).orElse(null);
 
-        if (user != null && user.getPassword().equals(password)) {
-            // CHECK IF VERIFIED
+        // --- Bcrypt Implementation ---
+        // Use passwordEncoder.matches(rawInput, databaseHash)
+        if (user != null && passwordEncoder.matches(rawPassword, user.getPassword())) {
             if (!user.isVerified()) {
-                return ResponseEntity.status(403).body("Account not verified. Please check your email.");
+                return ResponseEntity.status(403).body("Account not verified.");
             }
 
             String token = UUID.randomUUID().toString();
@@ -216,21 +222,20 @@ public class AuthController {
     // Stage 2: Confirm Reset
     @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(@RequestBody ResetRequest request) {
-        // 1. Find user by email from the request object
         User user = userRepository.findByEmailIgnoreCase(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2. Verify OTP (This uses the 'request' parameter!)
         if (user.getOtpCode() != null && user.getOtpCode().equals(request.getOtp())) {
 
-            //Password Requirement
+            // KEEP YOUR REQUIREMENT
             String passRegex = "^(?=.*[A-Z])(?=.*\\d).{8,}$";
-
             if (!request.getNewPassword().matches(passRegex)) {
                 return ResponseEntity.badRequest().body("Password does not meet security requirements.");
             }
-            // 3. Update Password & Clear OTP
-            user.setPassword(request.getNewPassword()); // In a real app, use passwordEncoder!
+
+            // --- Bcrypt Implementation ---
+            // Hash the new password before saving
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
             user.setOtpCode(null);
             userRepository.save(user);
 

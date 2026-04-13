@@ -155,6 +155,8 @@
         const btn = document.querySelector('button[onclick="handleTransfer()"]');
         btn.disabled = true;
         btn.innerText = "Processing...";
+        btn.style.opacity = "0.7";
+        btn.style.cursor = "not-allowed";
         const targetInput = document.getElementById('targetAcc');
         const amountInput = document.getElementById('amount');
         const msgElem = document.getElementById('message');
@@ -168,6 +170,8 @@
             msgElem.style.color = "orange";
             btn.disabled = false;
             btn.innerText = "Send Money";
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
             return;
         }
 
@@ -187,6 +191,8 @@
             if (response.ok) {
                 btn.disabled = false;
                 btn.innerText = "Send Money";
+                btn.style.opacity = "1";
+                btn.style.cursor = "pointer";
                 /** @type {{newBalance: number}} */
                 const data = await response.json();
                 document.getElementById('balanceDisplay').innerText = data.newBalance.toString();
@@ -200,6 +206,8 @@
             } else {
                 btn.disabled = false;
                 btn.innerText = "Send Money";
+                btn.style.opacity = "1";
+                btn.style.cursor = "pointer";
                 const errorData = await response.json();
                 msgElem.innerText = errorData.message || "Transfer Failed";
                 msgElem.style.color = "red";
