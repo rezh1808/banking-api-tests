@@ -1,6 +1,7 @@
 package com.qa.controller;
 
 import com.bank.*;
+import com.bank.security.JwtUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/bank")
@@ -19,7 +19,9 @@ public class AuthController {
     private final TransactionRepository transactionRepository;
     private final EmailService emailService;
 
-    // 1. ADD THE ENCODER HERE
+    @Autowired
+    private JwtUtils jwtUtils;
+
     @Autowired
     private org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder;
 
@@ -34,7 +36,6 @@ public class AuthController {
         this.emailService = emailService;
     }
 
-    private static final Map<String, String> activeSessions = new ConcurrentHashMap<>();
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody User user) {
@@ -137,35 +138,52 @@ public class AuthController {
 
         User user = userRepository.findById(username).orElse(null);
 
-        // --- Bcrypt Implementation ---
-        // Use passwordEncoder.matches(rawInput, databaseHash)
+        // 1. Verify user exists and BCrypt password matches
         if (user != null && passwordEncoder.matches(rawPassword, user.getPassword())) {
+
+            // 2. Check verification status
             if (!user.isVerified()) {
                 return ResponseEntity.status(403).body("Account not verified.");
             }
 
-            String token = UUID.randomUUID().toString();
-            activeSessions.put(token, username);
+            // 3. Generate the JWT (The user's "Digital ID Card")
+            String token = jwtUtils.generateToken(username);
+
+            // 4. Send the token to the frontend
             return ResponseEntity.ok(Map.of("token", token));
         }
+
         return ResponseEntity.status(401).body("Invalid credentials");
     }
 
     @GetMapping("/user-info")
     public ResponseEntity<User> getUserInfo(@RequestHeader("Authorization") String token) {
-        String username = activeSessions.get(token);
-        if (username == null) return ResponseEntity.status(403).build();
+        try {
+            // 1. Validate the token and extract the username
+            // (This replaces the activeSessions.get(token) lookup)
+            String username = jwtUtils.validateTokenAndGetUsername(token);
 
-        // Fetch the latest data from the database
-        return userRepository.findById(username)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(404).build());
+            if (username == null) {
+                return ResponseEntity.status(403).build();
+            }
+
+            // 2. Fetch the latest user data using the username from the token
+            return userRepository.findById(username)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.status(404).build());
+
+        } catch (Exception e) {
+            // If the token is expired, tampered with, or invalid, catch the error
+            logger.error("JWT Validation failed: {}", e.getMessage());
+            return ResponseEntity.status(403).build();
+        }
     }
 
     @PostMapping("/transfer")
     public ResponseEntity<?> transfer(@RequestHeader("Authorization") String token,
-                                      @RequestBody Map<String, Object> payload) {
-        String username = activeSessions.get(token);
+                                      @RequestBody Map<String, Object> payload)
+    {
+        String username = jwtUtils.validateTokenAndGetUsername(token);
         if (username == null) return ResponseEntity.status(403).build();
 
         User sender = userRepository.findById(username).orElse(null);
@@ -247,7 +265,7 @@ public class AuthController {
 
     @GetMapping("/balance")
     public ResponseEntity<Integer> getBalance(@RequestHeader("Authorization") String token) {
-        String username = activeSessions.get(token);
+        String username = jwtUtils.validateTokenAndGetUsername(token);
         if (username == null) return ResponseEntity.status(403).build();
 
         User currentUser = userRepository.findById(username).orElse(null);

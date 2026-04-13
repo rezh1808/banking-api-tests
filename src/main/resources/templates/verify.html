@@ -121,6 +121,7 @@
     <p>We've sent a 6-digit code to your email for <span id="username-display">Loading...</span></p>
 
     <div class="otp-container">
+        <label for="otpInput"></label>
         <input type="text" id="otpInput" placeholder="000000" maxlength="6" autocomplete="one-time-code">
     </div>
 
@@ -171,7 +172,7 @@
                     msg.innerText = "Success! Account verified.";
                     msg.style.color = "#27ae60";
 
-                    // REDIRECT TO LOGIN
+                    // REDIRECT TO LOG IN
                     setTimeout(() => {
                         window.location.href = "/ui/login";
                     }, 2000);

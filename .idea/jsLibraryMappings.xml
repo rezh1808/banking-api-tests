@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JavaScriptLibraryMappings">
+    <file url="file://$PROJECT_DIR$" libraries="{sweetalert2}" />
+    <file url="PROJECT" libraries="{@types/script-ext-html-webpack-plugin, sweetalert2}" />
+  </component>
+</project>
