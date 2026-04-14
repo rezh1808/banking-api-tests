@@ -2,6 +2,7 @@ package com.bank.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -9,9 +10,12 @@ import java.util.Date;
 
 @Component
 public class JwtUtils {
-
-    private final String SECRET_STRING = "reza_electrical_engineer_banking_app_secret_key_123456";
-    private final SecretKey SECRET_KEY = Keys.hmacShaKeyFor(SECRET_STRING.getBytes(StandardCharsets.UTF_8));
+    @Value("${app.jwt.secret}")
+    private String jwtSecret;
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = this.jwtSecret.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
 
     public String generateToken(String username) {
         long EXPIRATION_TIME = 86400000;
@@ -20,7 +24,7 @@ public class JwtUtils {
                 .subject(username)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .signWith(SECRET_KEY)
+                .signWith(getSigningKey())
                 .compact();
     }
 
@@ -28,12 +32,15 @@ public class JwtUtils {
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7);
         }
-
-        return Jwts.parser()
-                .verifyWith(SECRET_KEY)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
+        try {
+            return Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .getSubject();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
