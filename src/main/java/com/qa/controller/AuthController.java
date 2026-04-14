@@ -75,23 +75,38 @@ public class AuthController {
         return ResponseEntity.ok("Registration successful!");
     }
 
-    @PostMapping("/verify")
-    public ResponseEntity<?> verifyUser(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
-        String otpCode = request.get("otpCode");
+@PostMapping("/verify")
+public ResponseEntity<?> verifyUser(@RequestBody Map<String, String> request, HttpSession session) {
+    String username = request.get("username");
+    String otpCode = request.get("otpCode");
 
-        Optional<User> userOpt = userRepository.findById(username);
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (user.getOtpCode().equals(otpCode)) {
-                user.setVerified(true);
-                user.setOtpCode(null); // Clear the code after success
-                userRepository.save(user);
-                return ResponseEntity.ok("Verification Successful!");
-            }
-        }
-        return ResponseEntity.badRequest().body("Invalid or expired OTP code.");
+    // 1. SECURITY CHECK: Ensure the user is actually in a registration flow
+    if (session.getAttribute("user_is_registering") == null) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No active registration session found.");
     }
+
+    // 2. FIX TYPE MISMATCH: Use findByUsername(String) instead of findById(Long)
+    // Make sure findByUsername is defined in your UserRepository interface!
+    Optional<User> userOpt = userRepository.findByUsername(username);
+
+    if (userOpt.isPresent()) {
+        User user = userOpt.get();
+        
+        // 3. LOGIC CHECK: Verify OTP
+        if (user.getOtpCode() != null && user.getOtpCode().equals(otpCode)) {
+            user.setVerified(true);
+            user.setOtpCode(null); // Clear the code after success
+            userRepository.save(user);
+            
+            // Clear the registration flag from session after successful verification
+            session.removeAttribute("user_is_registering");
+            
+            return ResponseEntity.ok("Verification Successful!");
+        }
+    }
+    
+    return ResponseEntity.badRequest().body("Invalid or expired OTP code.");
+}
 
     @PostMapping("/verify-otp")
     public ResponseEntity<String> verifyOtp(@RequestParam String username, @RequestParam String otp) {
